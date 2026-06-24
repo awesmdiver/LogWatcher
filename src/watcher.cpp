@@ -189,9 +189,24 @@ void Logwatch::LogWatcher::discoverFiles(std::vector<fs::path>& out, const fs::p
     }
 }
 
+static const char* runStateStr(Logwatch::RunState rs) {
+    switch (rs) {
+        case Logwatch::RunState::Running:          return "Running";
+        case Logwatch::RunState::AutoStopPending:  return "AutoStopPending";
+        case Logwatch::RunState::Stopped:          return "Stopped";
+        default:                                   return "Unknown";
+    }
+}
+
 void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
 
+    uint64_t iteration = 0;
+
     while (!stop.stop_requested()) {
+
+        ++iteration;
+        logger::debug("[WatcherLoop] Iteration {} | state={} firstPollDone={}",
+            iteration, runStateStr(getRunState()), isFirstPollDone());
 
         if (!isFirstPollDone()) {
             logger::info("Watcher initially starting or resumed");
@@ -207,6 +222,8 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
                     return stop.stop_requested() || getRunState() != RunState::Stopped;
                 }
             );
+            logger::debug("[WatcherLoop] Woke from paused sleep | stop={} state={}",
+                stop.stop_requested(), runStateStr(getRunState()));
             continue;
         }
 
@@ -238,14 +255,19 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
             sleep_for = config.pollInterval;
         }
 
+        logger::debug("[WatcherLoop] Sleeping for {}ms", sleep_for.count());
+
 		// Stop-aware and paused-aware sleep
         std::unique_lock wake_lock(_wake_mutex_);
         const auto until = Clock::now() + sleep_for;
-        _wake_cv_.wait_until( wake_lock, until, 
-            [&] { 
+        const bool woke_by_signal = _wake_cv_.wait_until(wake_lock, until,
+            [&] {
                 return stop.stop_requested() || getRunState() == RunState::Stopped;
-            } 
+            }
         );
+
+        logger::debug("[WatcherLoop] Woke from poll sleep | by_signal={} stop={} state={}",
+            woke_by_signal, stop.stop_requested(), runStateStr(getRunState()));
     }
 
     logger::info("Watcher thread exited");
@@ -259,6 +281,8 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         if (stop.stop_requested()) return;
         discoverFiles(discovered, r, stop);
     }
+
+    logger::debug("[ScanOnce] Discovered {} file(s) across {} root(s)", discovered.size(), roots.size());
 
     for (const auto& p : discovered) {
         if (stop.stop_requested()) return;
@@ -294,6 +318,9 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         fi.state.offset = start_from_end ? fi.state.sizeLastSeen : 0;
         fi.state.lineNo = 0;
 
+        logger::debug("[ScanOnce] New file: {} | size={} offset={} deepScan={}",
+            Utils::replaceUsername(canon), fi.state.sizeLastSeen, fi.state.offset, !start_from_end);
+
 		// critical section: insert file if still not present
         {
             std::lock_guard lock(_mutex_);
@@ -313,6 +340,9 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         for (auto& f : files) keys.push_back(f.first);
     }
 
+    logger::debug("[ScanOnce] Checking {} tracked file(s) for new data", keys.size());
+    int tailCount = 0;
+
 	// Work unlocked through the cached keys
     for (const auto& key : keys) {
         if (stop.stop_requested()) return;
@@ -323,7 +353,7 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
             std::lock_guard lock(_mutex_);
             auto it = files.find(key);
             if (it == files.end()) continue;
-			snap = it->second; 
+			snap = it->second;
         }
 
         // I/O phase (unlocked)
@@ -334,6 +364,7 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
 
         // Erase locked if the file vanished
         if (!exists) {
+            logger::debug("[ScanOnce] File vanished, removing: {}", Utils::replaceUsername(key));
             std::lock_guard lock(_mutex_);
             auto it = files.find(key);
             if (it != files.end()) files.erase(it);
@@ -342,6 +373,8 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
 
         // Handle truncation/rotation in the snapshot
         if (size < snap.state.offset) {
+            logger::debug("[ScanOnce] File truncated/rotated: {} | was offset={} new size={}",
+                Utils::replaceUsername(key), snap.state.offset, size);
             snap.state.offset = 0;
             snap.state.lineNo = 0;
         }
@@ -349,8 +382,11 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         // Tail if there is new data
         bool tailed = false;
         if (size > snap.state.offset) {
+            logger::debug("[ScanOnce] Tailing: {} | offset={} size={} delta={}",
+                Utils::replaceUsername(key), snap.state.offset, size, size - snap.state.offset);
             tailFile(snap, stop);
             tailed = true;
+            ++tailCount;
         }
 
 		// Commit updated state back under lock
@@ -370,6 +406,8 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
             }
         }
     }
+
+    logger::debug("[ScanOnce] Complete | tracked={} tailed={}", keys.size(), tailCount);
 }
 
 
@@ -390,13 +428,19 @@ void Logwatch::LogWatcher::tailFile(FileInfo& fi, const std::stop_token& stop) {
 
     const auto toRead = std::min<uint64_t>(chunkCap, size - fi.state.offset);
 
+    logger::debug("[TailFile] {} | offset={} size={} toRead={} chunkCap={}",
+        Utils::toUTF8(fi.path.filename()), fi.state.offset, size, toRead, chunkCap);
+
     if (stop.stop_requested()) return;
 
     std::ifstream in(fi.path, std::ios::binary);
-    if (!in) return;
+    if (!in) {
+        logger::debug("[TailFile] Failed to open file: {}", Utils::toUTF8(fi.path.filename()));
+        return;
+    }
 
     in.seekg(static_cast<std::streamoff>(fi.state.offset), std::ios::beg);
-    
+
     std::string buf;
     buf.resize(toRead);
     in.read(&buf[0], static_cast<std::streamsize>(toRead));
@@ -405,27 +449,38 @@ void Logwatch::LogWatcher::tailFile(FileInfo& fi, const std::stop_token& stop) {
     buf.resize(offset);
     fi.state.offset += offset;
 
+    logger::debug("[TailFile] Read {} bytes; new offset={}", offset, fi.state.offset);
+
     parseBufferAndEmit(fi, std::move(buf), stop);
 }
 
 void Logwatch::LogWatcher::parseBufferAndEmit(FileInfo& fi, std::string&& chunk, const std::stop_token& stop) {
-    
+
     const size_t lineCap = KB2B(fi.type == LogType::Papyrus ? config.papyrusMaxLineKB : config.maxLineKB);
 
+    logger::debug("[ParseEmit] {} | chunk={} bytes lineCap={} bytes",
+        Utils::toUTF8(fi.path.filename()), chunk.size(), lineCap);
+
     size_t start = 0;
+    size_t linesProcessed = 0;
+    size_t linesSkippedCap = 0;
     while (start < chunk.size() && !stop.stop_requested()) {
         size_t end = chunk.find_first_of("\r\n", start);
         if (end == std::string::npos) end = chunk.size();
 
         const size_t len = end - start;
         if (len <= lineCap) {
-            // This must be string_view to avoid allocating enw memory for chunk.
+            // This must be string_view to avoid allocating new memory for chunk.
             std::string_view sv(&chunk[start], len);
             auto line = Utils::trimLine(sv);
             if (!line.empty()) {
                 ++fi.state.lineNo;
+                ++linesProcessed;
                 emitIfMatch(fi.path, line, fi.state.lineNo);
             }
+        } else {
+            ++linesSkippedCap;
+            logger::debug("[ParseEmit] Skipped oversized line: len={} cap={}", len, lineCap);
         }
 
         // eat newline chars
@@ -439,6 +494,9 @@ void Logwatch::LogWatcher::parseBufferAndEmit(FileInfo& fi, std::string&& chunk,
             start = end;
         }
     }
+
+    logger::debug("[ParseEmit] Done | linesProcessed={} linesSkippedCap={}",
+        linesProcessed, linesSkippedCap);
 }
 
 void Logwatch::LogWatcher::emitIfMatch(const fs::path& file, const std::string_view& line, const uint64_t& lineNo) {
@@ -457,10 +515,16 @@ void Logwatch::LogWatcher::emitIfMatch(const fs::path& file, const std::string_v
                 m.lineNo = lineNo;
                 m.when = std::chrono::system_clock::now();
                 callback(m);
+            } else {
+                logger::warn("[EmitMatch] Pattern '{}' matched at line {} but callback is null! file={}",
+                    name, lineNo, Utils::toUTF8(file.filename()));
             }
             return; // stop after first matching pattern
         }
     }
+    // Only reachable if config.patterns is empty (the 'other' catch-all always matches otherwise)
+    logger::warn("[EmitMatch] No pattern matched line {} in {} - patterns list may be empty",
+        lineNo, Utils::toUTF8(file.filename()));
 }
 
 void Logwatch::LogWatcher::addLogDirectories() {

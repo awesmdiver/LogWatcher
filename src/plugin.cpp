@@ -58,7 +58,7 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
 
 SKSEPluginLoad(const SKSE::LoadInterface* skse) {
     SKSE::Init(skse);
-    setupLog(spdlog::level::info);
+    setupLog(spdlog::level::debug);
     logger::info("Log Watcher Plugin is Loaded");
     Trans::GetTranslator().load();
     SKSE::GetMessagingInterface()->RegisterListener(MessageHandler);
