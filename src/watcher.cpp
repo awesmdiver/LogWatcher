@@ -200,13 +200,7 @@ static const char* runStateStr(Logwatch::RunState rs) {
 
 void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
 
-    uint64_t iteration = 0;
-
     while (!stop.stop_requested()) {
-
-        ++iteration;
-        logger::debug("[WatcherLoop] Iteration {} | state={} firstPollDone={}",
-            iteration, runStateStr(getRunState()), isFirstPollDone());
 
         if (!isFirstPollDone()) {
             logger::info("Watcher initially starting or resumed");
@@ -255,9 +249,7 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
             sleep_for = config.pollInterval;
         }
 
-        logger::debug("[WatcherLoop] Sleeping for {}ms", sleep_for.count());
-
-		// Stop-aware and paused-aware sleep
+        // Stop-aware and paused-aware sleep
         std::unique_lock wake_lock(_wake_mutex_);
         const auto until = Clock::now() + sleep_for;
         const bool woke_by_signal = _wake_cv_.wait_until(wake_lock, until,
@@ -266,8 +258,6 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
             }
         );
 
-        logger::debug("[WatcherLoop] Woke from poll sleep | by_signal={} stop={} state={}",
-            woke_by_signal, stop.stop_requested(), runStateStr(getRunState()));
     }
 
     logger::info("Watcher thread exited");
@@ -281,8 +271,6 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         if (stop.stop_requested()) return;
         discoverFiles(discovered, r, stop);
     }
-
-    logger::debug("[ScanOnce] Discovered {} file(s) across {} root(s)", discovered.size(), roots.size());
 
     for (const auto& p : discovered) {
         if (stop.stop_requested()) return;
@@ -340,7 +328,6 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         for (auto& f : files) keys.push_back(f.first);
     }
 
-    logger::debug("[ScanOnce] Checking {} tracked file(s) for new data", keys.size());
     int tailCount = 0;
 
 	// Work unlocked through the cached keys
@@ -407,7 +394,6 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         }
     }
 
-    logger::debug("[ScanOnce] Complete | tracked={} tailed={}", keys.size(), tailCount);
 }
 
 

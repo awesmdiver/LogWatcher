@@ -24,8 +24,11 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
         logger::info("SKSE finished loading; initiating watcher");
 		auto& st = Logwatch::GetSettings(); // load defaults first
 		Logwatch::settingsPersister.loadState(); // then load persisted settings
-        config = Logwatch::watcher.configurator();
-        config.loadFromSettings(st);
+        // Apply loaded settings directly into the watcher's config (in-place via reference).
+        // The original code copied the config to a local, updated the copy, and discarded it —
+        // so the watcher's internal config always retained its defaults regardless of JSON settings.
+        Logwatch::watcher.configurator().loadFromSettings(st);
+        config = Logwatch::watcher.configurator();      // local copy for use below
         Logwatch::aggr.setCapacity(config.cacheCap);
         Logwatch::watcher.checkRunState();
         Logwatch::watcher.addLogDirectories();
@@ -58,7 +61,7 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
 
 SKSEPluginLoad(const SKSE::LoadInterface* skse) {
     SKSE::Init(skse);
-    setupLog(spdlog::level::debug);
+    setupLog(spdlog::level::info);
     logger::info("Log Watcher Plugin is Loaded");
     Trans::GetTranslator().load();
     SKSE::GetMessagingInterface()->RegisterListener(MessageHandler);
