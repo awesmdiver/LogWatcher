@@ -115,7 +115,7 @@ void Logwatch::LogWatcher::saveWatchIfChanged(const Snapshot& snap) {
     const size_t currentHash = hashWatchSnapshot(snap);
     if (currentHash == lastWatchHash) return;
     lastWatchHash = currentHash;
-    logger::info("[Snapshot] hash changed, saving WatchSnapshot ({} mods tracked)", snap.size());
+    logger::debug("[Snapshot] hash changed, saving WatchSnapshot ({} mods tracked)", snap.size());
 
     const auto outPath = watchSnapshotPath("log");
     const auto csvPath = watchSnapshotPath("csv");
@@ -283,7 +283,7 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
                 const uint64_t cur = getRealFileSize(fd.path);
                 const bool isGrowing = cur > fd.offset;
                 if (isPapyrus || isGrowing) {
-                    logger::info("[Heartbeat:File] offset={} sizeAtDisc={} curSize={} growing={} | {}",
+                    logger::debug("[Heartbeat:File] offset={} sizeAtDisc={} curSize={} growing={} | {}",
                         fd.offset, fd.sizeLastSeen, cur, isGrowing ? "YES" : "no",
                         Utils::replaceUsername(fd.key));
                 }
@@ -434,7 +434,7 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
                 Utils::replaceUsername(key), snap.state.offset, size, delta);
             const auto oldOffset = snap.state.offset;
             tailFile(snap, stop);
-            logger::info("[Tail] {} | +{} bytes (offset {} -> {})",
+            logger::debug("[Tail] {} | +{} bytes (offset {} -> {})",
                 Utils::toUTF8(snap.path.filename()), snap.state.offset - oldOffset, oldOffset, snap.state.offset);
             tailed = true;
             ++tailCount;

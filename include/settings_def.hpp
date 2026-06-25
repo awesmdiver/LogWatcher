@@ -19,6 +19,7 @@ namespace Logwatch {
     S(notificationsEnabled,     true) \
     S(periodicSummaryEnabled,   true) \
     S(pinnedAlertsEnabled,      true) \
+    S(verboseLogging,           false) \
 
 
 #define FOREACH_SIZE_SETTING(S) \

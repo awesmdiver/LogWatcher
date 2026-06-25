@@ -63,7 +63,10 @@ namespace Logwatch {
             FOREACH_BOOL_SETTING(SETTING2CONFIG);
             FOREACH_SIZE_SETTING(SETTING2CONFIG);
             FOREACH_FLT_SETTING(SETTING2CONFIG);
-			pollInterval = std::chrono::milliseconds{ pollIntervalMs };
+            pollInterval = std::chrono::milliseconds{ pollIntervalMs };
+            const auto level = verboseLogging ? spdlog::level::debug : spdlog::level::info;
+            spdlog::set_level(level);
+            spdlog::flush_on(level);
         }
 
         void print() const {
