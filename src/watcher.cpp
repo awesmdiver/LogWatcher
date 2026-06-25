@@ -2,6 +2,7 @@
 #include <codecvt>
 #include <locale>
 #include <filesystem>
+#include <fstream>
 
 #include "config.hpp"
 #include "watcher.hpp"
@@ -9,6 +10,18 @@
 #include "logger.hpp"
 #include "documents.hpp"
 #include "aggregator.hpp"
+
+// fs::file_size() calls GetFileAttributesEx internally, which OneDrive's
+// kernel VFS filter (reparse tag 0x9000601a) satisfies from its metadata
+// cache. That cache is not updated for excluded file types, so sizes appear
+// frozen. Opening the file with a real handle forces OneDrive to report the
+// actual on-disk size via GetFileSizeEx on the open handle.
+static uint64_t getRealFileSize(const std::filesystem::path& p) {
+    std::ifstream f(p, std::ios::binary | std::ios::ate);
+    if (!f) return 0;
+    const std::streamoff pos = f.tellg();
+    return pos < 0 ? 0 : static_cast<uint64_t>(pos);
+}
 
 Logwatch::LogWatcher Logwatch::watcher;
 
@@ -255,9 +268,7 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
 
             size_t growing = 0, truncated = 0, unchanged = 0;
             for (const auto& fd : snapshot) {
-                std::error_code ec;
-                const auto sz = fs::file_size(fd.path, ec);
-                const uint64_t cur = ec ? 0ull : sz;
+                const uint64_t cur = getRealFileSize(fd.path);
                 if      (cur > fd.offset) ++growing;
                 else if (cur < fd.offset) ++truncated;
                 else                      ++unchanged;
@@ -269,9 +280,7 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
             // Dump Papyrus files and any "growing" files so we can see their state
             for (const auto& fd : snapshot) {
                 const bool isPapyrus = fd.key.find("apyrus") != std::string::npos || fd.key.find("papyrus") != std::string::npos;
-                std::error_code ec;
-                const auto sz = fs::file_size(fd.path, ec);
-                const uint64_t cur = ec ? 0ull : sz;
+                const uint64_t cur = getRealFileSize(fd.path);
                 const bool isGrowing = cur > fd.offset;
                 if (isPapyrus || isGrowing) {
                     logger::info("[Heartbeat:File] offset={} sizeAtDisc={} curSize={} growing={} | {}",
@@ -350,13 +359,10 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         fi.type = classify(fi.path);
 
         fi.state.writeTime = fs::last_write_time(p, ec);
-        fi.state.sizeLastSeen = fs::file_size(p, ec);
         fi.state.lastPoll = Clock::now();
 
-        if (ec) ec.clear();
-        std::error_code ec2;
-        const auto sz = fs::file_size(p, ec2);
-        fi.state.sizeLastSeen = ec2 ? 0 : sz;
+        const auto sz = getRealFileSize(p);
+        fi.state.sizeLastSeen = sz;
         fi.state.offset = start_from_end ? fi.state.sizeLastSeen : 0;
         fi.state.lineNo = 0;
 
@@ -400,7 +406,7 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         // I/O phase (unlocked)
         std::error_code ec;
         const bool exists = fs::exists(snap.path, ec);
-        const auto size = exists ? fs::file_size(snap.path, ec) : 0ull;
+        const auto size = exists ? getRealFileSize(snap.path) : 0ull;
         const auto wt = exists ? fs::last_write_time(snap.path, ec) : decltype(snap.state.writeTime){};
 
         // Erase locked if the file vanished
@@ -456,9 +462,8 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
 
 
 void Logwatch::LogWatcher::tailFile(FileInfo& fi, const std::stop_token& stop) {
-    std::error_code ec;
-    const auto size = fs::file_size(fi.path, ec);
-    if (ec || size <= fi.state.offset) return;
+    const auto size = getRealFileSize(fi.path);
+    if (size == 0 || size <= fi.state.offset) return;
 
     size_t chunkCap = KB2B(fi.type == LogType::Papyrus ? config.papyrusMaxChunkKB : config.maxChunkKB);
 
