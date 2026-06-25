@@ -243,12 +243,42 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
 
         // Periodic heartbeat so we can confirm the thread is alive in logs
         if (pollCount % 60 == 0) {
-            size_t fileCount = 0;
+            struct FileDiag { std::string key; fs::path path; uint64_t offset; uint64_t sizeLastSeen; };
+            std::vector<FileDiag> snapshot;
             {
                 std::lock_guard lock(_mutex_);
-                fileCount = files.size();
+                snapshot.reserve(files.size());
+                for (const auto& [k, fi] : files) {
+                    snapshot.push_back({ k, fi.path, fi.state.offset, fi.state.sizeLastSeen });
+                }
             }
-            logger::info("[Heartbeat] poll={} files_tracked={}", pollCount, fileCount);
+
+            size_t growing = 0, truncated = 0, unchanged = 0;
+            for (const auto& fd : snapshot) {
+                std::error_code ec;
+                const auto sz = fs::file_size(fd.path, ec);
+                const uint64_t cur = ec ? 0ull : sz;
+                if      (cur > fd.offset) ++growing;
+                else if (cur < fd.offset) ++truncated;
+                else                      ++unchanged;
+            }
+
+            logger::info("[Heartbeat] poll={} files_tracked={} growing={} truncated={} unchanged={}",
+                pollCount, snapshot.size(), growing, truncated, unchanged);
+
+            // Dump Papyrus files and any "growing" files so we can see their state
+            for (const auto& fd : snapshot) {
+                const bool isPapyrus = fd.key.find("apyrus") != std::string::npos || fd.key.find("papyrus") != std::string::npos;
+                std::error_code ec;
+                const auto sz = fs::file_size(fd.path, ec);
+                const uint64_t cur = ec ? 0ull : sz;
+                const bool isGrowing = cur > fd.offset;
+                if (isPapyrus || isGrowing) {
+                    logger::info("[Heartbeat:File] offset={} sizeAtDisc={} curSize={} growing={} | {}",
+                        fd.offset, fd.sizeLastSeen, cur, isGrowing ? "YES" : "no",
+                        Utils::replaceUsername(fd.key));
+                }
+            }
         }
 
         // Schedule notifications / mails
@@ -384,8 +414,8 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
 
         // Handle truncation/rotation in the snapshot
         if (size < snap.state.offset) {
-            logger::debug("[ScanOnce] File truncated/rotated: {} | was offset={} new size={}",
-                Utils::replaceUsername(key), snap.state.offset, size);
+            logger::info("[ScanOnce] Truncated/rotated: {} | offset={} -> 0 (new size={})",
+                Utils::toUTF8(snap.path.filename()), snap.state.offset, size);
             snap.state.offset = 0;
             snap.state.lineNo = 0;
         }
