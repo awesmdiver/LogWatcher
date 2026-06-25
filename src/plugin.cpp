@@ -49,9 +49,10 @@ static void MessageHandler(SKSE::MessagingInterface::Message* msg) {
     case SKSE::MessagingInterface::kPostLoadGame:
     case SKSE::MessagingInterface::kNewGame:
     {
-        logger::info("Loading game detected, delaying notifications by {}", config.HUDPostLoadDelaySec);
+        const int delay = Logwatch::GetSettings().HUDPostLoadDelaySec;
+        logger::info("Loading game detected, delaying notifications by {}", delay);
         Logwatch::watcher.setGameReady(true);
-        Logwatch::watcher.setHUDStartDelay(config.HUDPostLoadDelaySec);
+        Logwatch::watcher.setHUDStartDelay(delay);
         break;
     }
     default:

@@ -1,0 +1,184 @@
+{
+
+  /* ============================================================
+     WATCH TAB
+     ============================================================ */
+
+  "Watch.TabTitle": "Watch",
+
+  "Watch.Panel.Filter.Label": "Filter",
+  "Watch.Panel.Opaque.Label": "Opaque",
+  "Watch.Panel.ClearPins.Label": "Clear Pins",
+  "Watch.Panel.PinFirst.Label": "Pin first",
+  "Watch.Panel.ShowPinnedOnly.Label": "Show pinned only",
+  "Watch.Panel.WarmingUp.Label": "Warming up",
+
+  "Watch.Table.Header.Mod": "Mod",
+  "Watch.Table.Header.Pinned": "Pinned",
+  "Watch.Table.Header.Errors": "Errors",
+  "Watch.Table.Header.Warnings": "Warnings",
+  "Watch.Table.Header.Fails": "Fails",
+  "Watch.Table.Header.Others": "Other",
+  "Watch.Table.Header.Recent": "Recent",
+  "Watch.Table.Tooltip.ModDetails": "Click to view details.",
+  "Watch.Table.Tooltip.Pin": "Pin",
+  "Watch.Table.Tooltip.Unpin": "Unpin",
+
+  "Watch.Details.Title": "Mod Details",
+  "Watch.Details.Empty": "No mod selected.",
+  "Watch.Details.AutoScroll": "Auto scroll",
+  "Watch.Details.Opaque": "Opaque",
+  "Watch.Details.Filter": "Filter",
+  "Watch.Details.NoData": "No data yet for this mod (maybe the log was rotated).",
+  "Watch.Details.Cached": "Cached",
+
+  "Watch.Details.Combo.Levels": "Levels",
+  "Watch.Details.Combo.All": "All",
+  "Watch.Details.Combo.None": "None",
+
+  /* ============================================================
+     MAILBOX TAB
+     ============================================================ */
+
+  "Mailbox.TabTitle": "Mailbox",
+
+  "Mailbox.Left.Table.Header.Type": "Type",
+  "Mailbox.Left.Table.Header.Title": "Title",
+  "Mailbox.Left.Table.Header.Summary": "Summary",
+  "Mailbox.Left.Table.Header.When": "Time",
+  "Mailbox.Left.Type.Periodic": "Periodic",
+  "Mailbox.Left.Type.Pinned": "Pinned",
+
+  "Mailbox.Right.Empty.Title": "No new messages.",
+  "Mailbox.Right.Help.Select": "Select a message on the left to see details.",
+  "Mailbox.Right.Body.Empty": "No details for this mod.",
+
+  "Mailbox.Time.JustNow": "Just now",
+  "Mailbox.Time.SecondsAgo": " seconds ago",
+  "Mailbox.Time.MinuteAgo": " minute ago",
+  "Mailbox.Time.MinutesAgo": " minutes ago",
+  "Mailbox.Time.HourAgo": " hour ago",
+  "Mailbox.Time.HoursAgo": " hours ago",
+  "Mailbox.Time.DayAgo": " day ago",
+  "Mailbox.Time.DaysAgo": " days ago",
+
+  /* ============================================================
+     NOTIFICATIONS
+     ============================================================ */
+
+  // leave placeholders as {sec}, {errors}, {warnings}, {fails}, {mods}, {n}
+  "Notify.Periodic.Title": "Summary (last {sec}s)",
+  "Notify.Periodic.Total": "Total: {errors} errors, {warnings} warnings, {fails} fails from {mods} mods",
+
+  "Notify.Pinned.Errors": "{n} error",
+  "Notify.Pinned.Errors.Plural": "{n} errors",
+  "Notify.Pinned.Warnings": "{n} warning",
+  "Notify.Pinned.Warnings.Plural": "{n} warnings",
+  "Notify.Pinned.Fails": "{n} fail",
+  "Notify.Pinned.Fails.Plural": "{n} fails",
+
+  /* ============================================================
+     SETTINGS TAB
+     ============================================================ */
+
+  "Settings.TabTitle": "Settings",
+
+  "Settings.Run.Resume.Label": "Resume",
+  "Settings.Run.Resume.Tooltip": "Resume real-time log watching using the current settings.",
+  "Settings.Run.Pausing.Label": "Pausing...",
+  "Settings.Run.Pausing.Tooltip": "Watcher is finishing the current scan then will pause.\nYou can resume once it has fully stopped.",
+  "Settings.Run.Pause.Label": "Pause",
+  "Settings.Run.Pause.Tooltip": "Pause watching after the current scan.\nExisting results stay visible, but no new live feed until you resume.\nThis state is persistent on save.",
+
+  "Settings.History.Header": "History",
+  "Settings.History.DeepScan.Label": "Deep scan (parse from beginning on next start)",
+  "Settings.History.DeepScan.Tooltip": "When enabled, the watcher parses each tracked log from offset 0 on next (re)start.\nOtherwise, it tails from the current file end.",
+  "Settings.History.SaveWatch.Label": "Save watch to disk",
+  "Settings.History.SaveWatch.Tooltip": "When enabled, the watcher saves the current watch history to disk in real-time.\nThis allows recovering the watch history after a crash, freeze or accidental closure.",
+
+  "Settings.Cache.Header": "Cache",
+  "Settings.Cache.Capacity.Label": "Cache capacity per mod",
+  "Settings.Cache.Capacity.Tooltip": "How many recent messages per mod to keep in memory.\nThis bounds what \"All\" can show in the Details view.",
+
+  "Settings.Performance.Header": "Performance",
+  "Settings.Performance.PollInterval.Label": "Poll interval (ms)",
+  "Settings.Performance.PollInterval.Tooltip": "How often to check log files for new data.\nLower values increase responsiveness but use more CPU.",
+  "Settings.Performance.MaxChunk.Label": "Max chunk per poll (KB)",
+  "Settings.Performance.MaxChunk.Tooltip": "Maximum data read from each log file per poll.\nLarger chunks reduce I/O calls but may cause hitches if too large.",
+  "Settings.Performance.MaxLine.Label": "Max line length (KB)",
+  "Settings.Performance.MaxLine.Tooltip": "Lines longer than this are skipped.\nSome logs may have very long lines; adjust as needed.",
+  "Settings.Performance.WatchPapyrus.Label": "Watch Papyrus logs",
+  "Settings.Performance.WatchPapyrus.Tooltip": "Enable monitoring of Papyrus script logs.\nThese logs can be large and may impact performance.",
+  "Settings.Performance.PapyrusChunk.Label": "Max Papyrus chunk per poll (KB)",
+  "Settings.Performance.PapyrusChunk.Tooltip": "Papyrus logs often exceed 1 MB; larger chunks prevent lag.",
+  "Settings.Performance.PapyrusLine.Label": "Max Papyrus line length (KB)",
+  "Settings.Performance.PapyrusLine.Tooltip": "Maximum line length for Papyrus logs.",
+
+  "Settings.Adaptive.Header": "Adaptive Boost (advanced)",
+  "Settings.Adaptive.AutoBoost.Label": "Enable auto-boost when behind",
+  "Settings.Adaptive.AutoBoost.Tooltip": "When the watcher falls behind (e.g. large log writes),\nit can temporarily increase chunk size to catch up faster.",
+  "Settings.Adaptive.Threshold.Label": "Backlog threshold (MB)",
+  "Settings.Adaptive.Threshold.Tooltip": "If the unread backlog exceeds this size, boosting activates.",
+  "Settings.Adaptive.Factor.Label": "Boost factor",
+  "Settings.Adaptive.Factor.Tooltip": "Multiplier for chunk size during boosting.",
+  "Settings.Adaptive.Cap.Label": "Boost capacity (MB)",
+  "Settings.Adaptive.Cap.Tooltip": "Maximum chunk size during boosting.",
+
+  "Settings.UX.Header": "UX (optional)",
+  "Settings.UX.PersistPins.Label": "Persist pins to disk",
+  "Settings.UX.PersistPins.Tooltip": "When enabled, pinned mods are saved to disk and restored on restart.",
+
+  "Settings.Notifications.Header": "Notifications System",
+  "Settings.Notifications.Enabled.Label": "Enable notifications / mailbox",
+  "Settings.Notifications.Enabled.Tooltip": "When enabled, the Watcher schedules HUD notifications and/or mailbox messages.",
+
+  "Settings.Notifications.HUDFontScale.Label": "HUD notification font scale (percentage)",
+  "Settings.Notifications.HUDFontScale.Tooltip": "Scale up or down the HUD font size.",
+
+  "Settings.Notifications.PostLoadDelay.Label": "HUD notification startup delay (sec)",
+  "Settings.Notifications.PostLoadDelay.Tooltip": "After loading a (new) save, wait at least this long before showing notifications.",
+
+  "Settings.Notifications.StayOn.Label": "HUD notification hold-up (sec)",
+  "Settings.Notifications.StayOn.Tooltip": "After firing an HUD notification, wait at least this long before fading out.",
+
+  "Settings.Notifications.FadeOut.Label": "HUD notification fade-out (sec)",
+  "Settings.Notifications.FadeOut.Tooltip": "Gradually fades out the HUD notification.",
+
+  "Settings.Notifications.Cooldown.Label": "HUD notification cooldown (sec)",
+  "Settings.Notifications.Cooldown.Tooltip": "After firing an HUD notification, wait at least this long before another one.",
+
+  "Settings.Notifications.PeriodicEnabled.Label": "Enable periodic summaries",
+  "Settings.Notifications.PeriodicEnabled.Tooltip": "Every N seconds, summarize new issues since the last summary.\nUseful when you want a high-level view of how unstable your load order is.",
+
+  "Settings.Notifications.PeriodicInterval.Label": "Periodic interval (sec)",
+  "Settings.Notifications.PeriodicInterval.Tooltip": "How often to emit a periodic summary.\nShorter intervals give more frequent updates, longer intervals are quieter.",
+
+  "Settings.Notifications.PeriodicMaxMods.Label": "Max mods listed per periodic summary",
+  "Settings.Notifications.PeriodicMaxMods.Tooltip": "Maximum number of individual mods briefed in each periodic summary.\nThe rest are grouped as \"+N more\".",
+
+  "Settings.Notifications.PeriodicMinLevel.Label": "Minimum level (periodic alerts)",
+  "Settings.Notifications.PeriodicMinLevel.Tooltip": "Controls which log levels are considered in a summary.\n0 = only errors, 1 = errors + warnings, 2 = errors + warnings + fails.",
+  "Settings.Notifications.PeriodicMinLevel.Option0": "Errors only",
+  "Settings.Notifications.PeriodicMinLevel.Option1": "Errors + warnings",
+  "Settings.Notifications.PeriodicMinLevel.Option2": "Errors + warnings + fails",
+
+  "Settings.Notifications.PinnedEnabled.Label": "Enable pinned mod alerts",
+  "Settings.Notifications.PinnedEnabled.Tooltip": "When enabled, pinned mods are watched more closely.\nIf a pinned mod produces new issues, a short notification is generated\nand a detailed entry is added to the Mailbox tab.",
+
+  "Settings.Notifications.PinnedMinIssues.Label": "Min new issues to alert",
+  "Settings.Notifications.PinnedMinIssues.Tooltip": "Minimum number of new issues from a pinned mod before an alert is raised.\nHigher values reduce spam on noisy mods.",
+
+  "Settings.Notifications.PinnedCooldown.Label": "Per-mod cooldown (sec)",
+  "Settings.Notifications.PinnedCooldown.Tooltip": "After alerting for a pinned mod, wait at least this long before\nalerting again for the same mod.",
+
+  "Settings.Notifications.PinnedMinLevel.Label": "Minimum level (pinned alerts)",
+  "Settings.Notifications.PinnedMinLevel.Tooltip": "0 = only errors, 1 = errors + warnings, 2 = errors + warnings + fails.",
+  "Settings.Notifications.PinnedMinLevel.Option0": "Errors only",
+  "Settings.Notifications.PinnedMinLevel.Option1": "Errors + warnings",
+  "Settings.Notifications.PinnedMinLevel.Option2": "Errors + warnings + fails",
+
+  "Settings.Apply.SaveAndApply.Label": "Save and Apply",
+  "Settings.Apply.LoadDefaults.Label": "Load Defaults",
+  "Settings.Apply.Applying.Status": "Applying",
+  "Settings.Apply.Done.Status": "Done"
+}
