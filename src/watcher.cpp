@@ -102,6 +102,7 @@ void Logwatch::LogWatcher::saveWatchIfChanged(const Snapshot& snap) {
     const size_t currentHash = hashWatchSnapshot(snap);
     if (currentHash == lastWatchHash) return;
     lastWatchHash = currentHash;
+    logger::info("[Snapshot] hash changed, saving WatchSnapshot ({} mods tracked)", snap.size());
 
     const auto outPath = watchSnapshotPath("log");
     const auto csvPath = watchSnapshotPath("csv");
@@ -149,6 +150,10 @@ bool Logwatch::LogWatcher::shouldInclude(const fs::path& file) const {
     const auto s = Utils::toUTF8(file.filename());
     if (!std::regex_search(s, config.includeFileRegex)) return false;
     if (std::regex_search(s, config.excludeFileRegex)) return false;
+    // Exclude LogWatcher's own output files to prevent a feedback loop where
+    // the watcher reads its own snapshot, inflates aggregator counts, saves a
+    // new snapshot, then reads that, etc.
+    if (s.find("WatchSnapshot") != std::string::npos) return false;
     return true;
 }
 
@@ -200,6 +205,8 @@ static const char* runStateStr(Logwatch::RunState rs) {
 
 void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
 
+    uint64_t pollCount = 0;
+
     while (!stop.stop_requested()) {
 
         if (!isFirstPollDone()) {
@@ -221,11 +228,28 @@ void Logwatch::LogWatcher::watcherLoop(const std::stop_token& stop) {
             continue;
         }
 
-        scanOnce(stop); // Unlocked scan (only critical parts have locks)
+        try {
+            scanOnce(stop); // Unlocked scan (only critical parts have locks)
+        } catch (const std::exception& e) {
+            logger::error("[WatcherLoop] scanOnce threw: {}", e.what());
+        } catch (...) {
+            logger::error("[WatcherLoop] scanOnce threw unknown exception");
+        }
 
         resetWarmingUp();
 
 		markFirstPollDone();
+        ++pollCount;
+
+        // Periodic heartbeat so we can confirm the thread is alive in logs
+        if (pollCount % 60 == 0) {
+            size_t fileCount = 0;
+            {
+                std::lock_guard lock(_mutex_);
+                fileCount = files.size();
+            }
+            logger::info("[Heartbeat] poll={} files_tracked={}", pollCount, fileCount);
+        }
 
         // Schedule notifications / mails
         if (!stop.stop_requested()) {
@@ -369,9 +393,13 @@ void Logwatch::LogWatcher::scanOnce(const std::stop_token& stop) {
         // Tail if there is new data
         bool tailed = false;
         if (size > snap.state.offset) {
+            const auto delta = size - snap.state.offset;
             logger::debug("[ScanOnce] Tailing: {} | offset={} size={} delta={}",
-                Utils::replaceUsername(key), snap.state.offset, size, size - snap.state.offset);
+                Utils::replaceUsername(key), snap.state.offset, size, delta);
+            const auto oldOffset = snap.state.offset;
             tailFile(snap, stop);
+            logger::info("[Tail] {} | +{} bytes (offset {} -> {})",
+                Utils::toUTF8(snap.path.filename()), snap.state.offset - oldOffset, oldOffset, snap.state.offset);
             tailed = true;
             ++tailCount;
         }
